@@ -19,7 +19,7 @@ def extract_words_from_file(file_name):
     tree = xml.etree.ElementTree.parse(file_name)
     root = tree.getroot()
     for doc in root.findall("RECORD"):
-        text = extract_words_from_doc(doc)
+        extract_words_from_doc(doc)
 
 
 def extract_words_from_doc(doc):
@@ -29,13 +29,13 @@ def extract_words_from_doc(doc):
             doc_id = elem.text
         elif elem.tag == "TITLE" or elem.tag == "EXTRACT" or elem.tag == "ABSTRACT":
             text = str(elem.text)
-            doc_text += text
+            doc_text += text + " "
 
     text_tokens = tokenizer.tokenize(doc_text)
-    docs_length[doc_id] = len(text_tokens)  # saving documents length
-    filtered_text = filter_stop_words(text_tokens)
-    stemmed_text = words_stemming(filtered_text)
-    doc_dict = create_doc_dict(stemmed_text)
+    docs_length[doc_id] = len(text_tokens)  # saving documents length TODO check the right place
+    filtered_text = filter_stop_words(text_tokens) # filter stop words
+    stemmed_text = words_stemming(filtered_text) # stem text
+    doc_dict = create_doc_dict(stemmed_text) # word to number of appearances in doc
     update_inverted_index(doc_id, doc_dict)
 
 
@@ -44,7 +44,7 @@ def filter_stop_words(text_tokens):
 
 
 def words_stemming(filtered_text):
-    return [ps.stem(w) for w in filtered_text]
+    return [ps.stem(w) for w in filtered_text] #TODO check about duplications
 
 
 def create_doc_dict(stemmed_text):
@@ -58,15 +58,15 @@ def create_doc_dict(stemmed_text):
 
 
 def update_inverted_index(doc_id, doc_dict):
-    max_word_num = doc_dict[max(doc_dict, key=doc_dict.get)]
+    #max_word_num = doc_dict[max(doc_dict, key=doc_dict.get)] TODO for Avi
     for word in doc_dict:
         if word not in inverted_index:
             inverted_index[word] = {"df": 1,
-                                    "list": {doc_id: doc_dict[word] / max_word_num}}  # the value of doc_id is tf score
+                                    "list": {doc_id: doc_dict[word]}}  # the value of doc_id is tf score
         else:
             inverted_index[word]["df"] += 1
             linked_list = inverted_index[word]["list"]
-            linked_list[doc_id] = doc_dict[word] / max_word_num
+            linked_list[doc_id] = doc_dict[word]
 
 
 if __name__ == "__main__":
