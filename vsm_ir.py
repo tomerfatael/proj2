@@ -5,7 +5,7 @@ import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import RegexpTokenizer
 from nltk.stem import PorterStemmer
-###
+
 inverted_index = {}
 docs_length = {}
 nltk.download('stopwords')
