@@ -136,27 +136,27 @@ def apply_query_with_tfidf(question, inverted_index):
     question = filter_query(question)
     words_to_tfidf_grade_in_query = calculate_query_tf_idf_grade(question, inverted_index)
     query_denominator = get_tfidf_query_denominator(words_to_tfidf_grade_in_query)
-    docs_denominator = inverted_index["docs_denominator"]  # TODO show Tomer
+    docs_denominator = inverted_index["docs_denominator"] # TODO show Tomer
 
     for word in question:
         word_relevant_docs_to_grades: dict = inverted_index[word]["list"]
-        for doc in word_relevant_docs_to_grades.keys():  # computing only the numerator
+        for doc in word_relevant_docs_to_grades.keys(): # computing only the numerator
             if doc not in relevent_docs_to_grade:
                 relevent_docs_to_grade[doc] = word_relevant_docs_to_grades[doc] * words_to_tfidf_grade_in_query[word]
             else:
                 relevent_docs_to_grade[doc] += word_relevant_docs_to_grades[doc] * words_to_tfidf_grade_in_query[word]
 
     for doc in relevent_docs_to_grade.keys():
-        relevent_docs_to_grade[doc] = relevent_docs_to_grade[doc] / (
-                    docs_denominator[doc] * query_denominator)  # TODO show Tomer
+        relevent_docs_to_grade[doc] = relevent_docs_to_grade[doc] / (docs_denominator[doc] * query_denominator) # TODO show Tomer
     return relevent_docs_to_grade
+
 
 
 def get_bm25_grade(tf_in_doc, idf, doc_length, avg_size_of_doc):
     k1 = 1.2
     b = 0.75
     tf = (tf_in_doc * (k1 + 1)) / (tf_in_doc + (k1 * (1 - b + b * (doc_length / avg_size_of_doc))))
-    return tf * idf
+    return  tf * idf
 
 
 def apply_query_with_bm(question, inverted_index):
@@ -180,9 +180,8 @@ def apply_query_with_bm(question, inverted_index):
 
 
 def apply_query(ranking_method, path_to_inverted_index, question):
-    inverted_index_as_json = open(path_to_inverted_index, "r")
-    inverted_index = json.load(
-        inverted_index_as_json)  # inverted index should be the map as we built it, see if there are changes that needs to be done.
+    inverted_index_as_json = open(path_to_inverted_index,"r")
+    inverted_index = json.load(inverted_index_as_json) # inverted index should be the map as we built it, see if there are changes that needs to be done.
     if ranking_method == "tfidf":
         relevant_docs_to_grades = apply_query_with_tfidf(question, inverted_index)
     elif ranking_method == "bm25":
@@ -204,12 +203,6 @@ if __name__ == "__main__":
             if filename.endswith("xml"):
                 f = os.path.join(path, filename)
                 extract_words_from_file(f)
-
-        update_docs_length_dict()
-        update_tfidf_score()
-        main_dict["inverted_index"] = inverted_index
-        main_dict["docs_length"] = docs_length
-        create_json_file()
 
     elif sys.argv[1] == "query":
         ranking_method = sys.argv[2]
