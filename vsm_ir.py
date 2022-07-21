@@ -24,6 +24,7 @@ def extract_words_from_file(file_name):
     for doc in root.findall("RECORD"):
         extract_words_from_doc(doc)
 
+
 def extract_words_from_doc(doc):
     doc_id, doc_text = "", ""
     for elem in doc:
@@ -69,7 +70,8 @@ def update_inverted_index(doc_id, doc_dict):
             inverted_index[word]["df"] += 1
             linked_list = inverted_index[word]["list"]
             linked_list[doc_id] = {"f": doc_dict[word]}
-            linked_list[doc_id]["tf"] = doc_dict[word]/max_word_num
+            linked_list[doc_id]["tf"] = doc_dict[word] / max_word_num
+
 
 def update_docs_length_dict():
     number_of_words = 0
@@ -78,24 +80,27 @@ def update_docs_length_dict():
         number_of_words += docs_length[doc_id]
 
     docs_length["number_of_docs"] = number_of_docs
-    docs_length["average_doc_length"] = number_of_words/number_of_docs
+    docs_length["average_doc_length"] = number_of_words / number_of_docs
 
 
 def update_tfidf_score():
     number_of_docs = docs_length["number_of_docs"]
     for word in inverted_index:
-        df = inverted_index[word]["df"]
         linked_list = inverted_index[word]["list"]
+        df = inverted_index[word]["df"]
+        # compute idf score
+        idf = math.log2(number_of_docs / df)
+        inverted_index[word]["idf"] = idf
         # compute idf score according to BM25
-        numerator = number_of_docs-df+0.5
-        denominator = df+0.5
-        BM25_idf = math.log(numerator/denominator+1)
+        numerator = number_of_docs - df + 0.5
+        denominator = df + 0.5
+        BM25_idf = math.log(numerator / denominator + 1)
         inverted_index[word]["BM25_idf"] = BM25_idf
         for doc_id in linked_list:
             # compute tf*idf score
             tf = linked_list[doc_id]["tf"]
-            idf = math.log2(number_of_docs/df)
-            linked_list[doc_id]["tf-idf"] = tf*idf
+            linked_list[doc_id]["tf-idf"] = tf * idf
+
 
 def create_json_file():
     with open("vsm_inverted_index.json", "w") as inverted_index_json:
@@ -131,7 +136,8 @@ def apply_query_with_tfidf(question, inverted_index):
     question = filter_query(question)
     words_to_tfidf_grade_in_query = calculate_query_tf_idf_grade(question, inverted_index)
     query_denominator = get_tfidf_query_denominator(words_to_tfidf_grade_in_query)
-    docs_lengths = inverted_index["docs_lengths"]  # TODO show Tomer
+    docs_denominator = inverted_index["docs_denominator"]  # TODO show Tomer
+
     for word in question:
         word_relevant_docs_to_grades: dict = inverted_index[word]["list"]
         for doc in word_relevant_docs_to_grades.keys():  # computing only the numerator
@@ -142,12 +148,35 @@ def apply_query_with_tfidf(question, inverted_index):
 
     for doc in relevent_docs_to_grade.keys():
         relevent_docs_to_grade[doc] = relevent_docs_to_grade[doc] / (
-                    docs_lengths[doc] * query_denominator)  # TODO show Tomer
-    return sorted(relevent_docs_to_grade.keys(), key=relevent_docs_to_grade.get, reverse=True)  # TODO test logic
+                    docs_denominator[doc] * query_denominator)  # TODO show Tomer
+    return relevent_docs_to_grade
+
+
+def get_bm25_grade(tf_in_doc, idf, doc_length, avg_size_of_doc):
+    k1 = 1.2
+    b = 0.75
+    tf = (tf_in_doc * (k1 + 1)) / (tf_in_doc + (k1 * (1 - b + b * (doc_length / avg_size_of_doc))))
+    return tf * idf
 
 
 def apply_query_with_bm(question, inverted_index):
-    pass
+    relevent_docs_to_grade = {}
+    avg_size_of_doc = inverted_index["docs"]["avg"]
+    question = filter_query(question)
+
+    for word in question:
+        word_relevant_docs_to_grades: dict = inverted_index[word][
+            "list"]  # TODO check this is the right way to use the dict
+        for doc in word_relevant_docs_to_grades.keys():  # computing only the numerator
+            if doc not in relevent_docs_to_grade:
+                relevent_docs_to_grade[doc] = get_bm25_grade(inverted_index[word]["list"][doc],
+                                                             inverted_index[word]["list"]["idfbm25"],
+                                                             avg_size_of_doc)  # TODO לבדוק את המבנה של המילון כמו שצריך ואז להכניס ערכים נכונים
+            else:
+                relevent_docs_to_grade[doc] += get_bm25_grade(inverted_index[word]["list"][doc],
+                                                              inverted_index[word]["list"]["idfbm25"], avg_size_of_doc)
+
+    return relevent_docs_to_grade
 
 
 def apply_query(ranking_method, path_to_inverted_index, question):
@@ -155,11 +184,17 @@ def apply_query(ranking_method, path_to_inverted_index, question):
     inverted_index = json.load(
         inverted_index_as_json)  # inverted index should be the map as we built it, see if there are changes that needs to be done.
     if ranking_method == "tfidf":
-        sorted_docs = apply_query_with_tfidf(question, inverted_index)
+        relevant_docs_to_grades = apply_query_with_tfidf(question, inverted_index)
     elif ranking_method == "bm25":
-        sorted_docs = apply_query_with_bm(question, inverted_index)
+        relevant_docs_to_grades = apply_query_with_bm(question, inverted_index)
     else:
-        print("invalid ranking method argument")
+        raise ("invalid ranking method argument")
+
+    return sorted(relevant_docs_to_grades.keys(), key=relevant_docs_to_grades.get, reverse=True)  # TODO test logic
+
+
+def make_txt_file_of_relevant_docs(relevant_docs):
+    pass
 
 
 if __name__ == "__main__":
@@ -176,12 +211,12 @@ if __name__ == "__main__":
         main_dict["docs_length"] = docs_length
         create_json_file()
 
-
     elif sys.argv[1] == "query":
         ranking_method = sys.argv[2]
         path_to_inverted_index = sys.argv[3]
         question = sys.argv[4]
-        apply_query(ranking_method, path_to_inverted_index, question)
+        relevant_docs = apply_query(ranking_method, path_to_inverted_index, question)
+        make_txt_file_of_relevant_docs(relevant_docs)
 
     else:
         print("invalid arguments")
