@@ -85,7 +85,7 @@ def calculate_query_tf_idf_grade(question, inverted_index):
     grades = {}
     query_len = len(question)
     for word in query_set:
-        idf_score = math.log2(inverted_index["D"] / inverted_index[word]["df"])
+        idf_score = math.log2(inverted_index["D"] / inverted_index[word]["df"]) # TODO use dict
         grades[word] = (question.count(word) * idf_score) / query_len
 
     return grades
@@ -121,22 +121,47 @@ def apply_query_with_tfidf(question, inverted_index):
 
     for doc in relevent_docs_to_grade.keys():
         relevent_docs_to_grade[doc] = relevent_docs_to_grade[doc] / (docs_denominator[doc] * query_denominator) # TODO show Tomer
-    return sorted(relevent_docs_to_grade.keys(), key=relevent_docs_to_grade.get, reverse=True) # TODO test logic
+    return relevent_docs_to_grade
 
+
+def get_bm25_grade(tf_in_doc, idf, doc_length, avg_size_of_doc):
+    k1 = 1.2
+    b = 0.75
+    tf = (tf_in_doc * (k1 + 1)) / (tf_in_doc + (k1 * (1 - b + b * (doc_length / avg_size_of_doc))))
+    return  tf * idf
 
 def apply_query_with_bm(question, inverted_index):
-    pass
+    relevent_docs_to_grade = {}
+    avg_size_of_doc = inverted_index["docs"]["avg"]
+    question = filter_query(question)
+
+    for word in question:
+        word_relevant_docs_to_grades: dict = inverted_index[word]["list"] # TODO check this is the right way to use the dict
+        for doc in word_relevant_docs_to_grades.keys(): # computing only the numerator
+            if doc not in relevent_docs_to_grade:
+                relevent_docs_to_grade[doc] = get_bm25_grade(inverted_index[word]["list"][doc], inverted_index[word]["list"]["idfbm25"], avg_size_of_doc) # TODO לבדוק את המבנה של המילון כמו שצריך ואז להכניס ערכים נכונים
+            else:
+                relevent_docs_to_grade[doc] += get_bm25_grade(inverted_index[word]["list"][doc], inverted_index[word]["list"]["idfbm25"], avg_size_of_doc)
+
+    return relevent_docs_to_grade
 
 
 def apply_query(ranking_method, path_to_inverted_index, question):
     inverted_index_as_json = open(path_to_inverted_index,"r")
     inverted_index = json.load(inverted_index_as_json) # inverted index should be the map as we built it, see if there are changes that needs to be done.
     if ranking_method == "tfidf":
-        sorted_docs = apply_query_with_tfidf(question, inverted_index)
+        relevant_docs_to_grades = apply_query_with_tfidf(question, inverted_index)
     elif ranking_method == "bm25":
-        sorted_docs = apply_query_with_bm(question, inverted_index)
+        relevant_docs_to_grades = apply_query_with_bm(question, inverted_index)
     else:
-        print("invalid ranking method argument")
+        raise ("invalid ranking method argument")
+
+    return sorted(relevant_docs_to_grades.keys(), key=relevant_docs_to_grades.get, reverse=True)  # TODO test logic
+
+
+def make_txt_file_of_relevant_docs(relevant_docs):
+    pass
+
 
 if __name__ == "__main__":
     if sys.argv[1] == "create_index":
@@ -150,7 +175,8 @@ if __name__ == "__main__":
         ranking_method = sys.argv[2]
         path_to_inverted_index = sys.argv[3]
         question = sys.argv[4]
-        apply_query(ranking_method, path_to_inverted_index, question)
+        relevant_docs = apply_query(ranking_method, path_to_inverted_index, question)
+        make_txt_file_of_relevant_docs(relevant_docs)
 
     else:
         print("invalid arguments")
