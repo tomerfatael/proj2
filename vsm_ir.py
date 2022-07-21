@@ -215,6 +215,12 @@ if __name__ == "__main__":
                 f = os.path.join(path, filename)
                 extract_words_from_file(f)
 
+        update_docs_length_dict()
+        update_tfidf_score()
+        main_dict["inverted_index"] = inverted_index
+        main_dict["docs_length"] = docs_length
+        create_json_file()
+
     elif sys.argv[1] == "query":
         ranking_method = sys.argv[2]
         path_to_main_dict = sys.argv[3]
