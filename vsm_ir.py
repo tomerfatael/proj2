@@ -8,6 +8,7 @@ from nltk.corpus import stopwords
 from nltk.tokenize import RegexpTokenizer
 from nltk.stem import PorterStemmer
 
+main_dict = {}
 # inverted_index -> {doc_id : docs_lengths, doc_id : sqr_root_of_weights, "D" : number_of_docs, word : "df", word : grade_of_word_id_specific_doc (Wij)}
 # docs_to_lengths: dict = inverted_index[doc_id]["lengths"]
 #
@@ -44,9 +45,9 @@ def extract_words_from_doc(doc):
 
     text_tokens = tokenizer.tokenize(doc_text)
     docs_length[doc_id] = len(text_tokens)  # saving documents length TODO check the right place
-    filtered_text = filter_stop_words(text_tokens) # filter stop words
-    stemmed_text = words_stemming(filtered_text) # stem text
-    doc_dict = create_doc_dict(stemmed_text) # word to number of appearances in doc
+    filtered_text = filter_stop_words(text_tokens)  # filter stop words
+    stemmed_text = words_stemming(filtered_text)  # stem text
+    doc_dict = create_doc_dict(stemmed_text)  # word to number of appearances in doc
     update_inverted_index(doc_id, doc_dict)
 
 
@@ -55,7 +56,7 @@ def filter_stop_words(text_tokens):
 
 
 def words_stemming(filtered_text):
-    return [ps.stem(w) for w in filtered_text] #TODO check about duplications
+    return [ps.stem(w) for w in filtered_text]  # TODO check about duplications
 
 
 def create_doc_dict(stemmed_text):
@@ -69,15 +70,46 @@ def create_doc_dict(stemmed_text):
 
 
 def update_inverted_index(doc_id, doc_dict):
-    #max_word_num = doc_dict[max(doc_dict, key=doc_dict.get)] TODO for Avi
+    max_word_num = doc_dict[max(doc_dict, key=doc_dict.get)]
     for word in doc_dict:
         if word not in inverted_index:
             inverted_index[word] = {"df": 1,
-                                    "list": {doc_id: doc_dict[word]}}  # the value of doc_id is tf score
+                                    "list": {doc_id: {"f": doc_dict[word], "tf": doc_dict[word] / max_word_num}}}
         else:
             inverted_index[word]["df"] += 1
             linked_list = inverted_index[word]["list"]
-            linked_list[doc_id] = doc_dict[word]
+            linked_list[doc_id] = {"f": doc_dict[word]}
+            linked_list[doc_id]["tf"] = doc_dict[word]/max_word_num
+
+def update_docs_length_dict():
+    number_of_words = 0
+    number_of_docs = len(docs_length)
+    for doc_id in docs_length:
+        number_of_words += docs_length[doc_id]
+
+    docs_length["number_of_docs"] = number_of_docs
+    docs_length["average_doc_length"] = number_of_words/number_of_docs
+
+
+def update_tfidf_score():
+    number_of_docs = docs_length["number_of_docs"]
+    for word in inverted_index:
+        df = inverted_index[word]["df"]
+        linked_list = inverted_index[word]["list"]
+        # compute idf score according to BM25
+        numerator = number_of_docs-df+0.5
+        denominator = df+0.5
+        BM25_idf = math.log(numerator/denominator+1)
+        inverted_index[word]["BM25_idf"] = BM25_idf
+        for doc_id in linked_list:
+            # compute tf*idf score
+            tf = linked_list[doc_id]["tf"]
+            idf = math.log2(number_of_docs/df)
+            linked_list[doc_id]["tf-idf"] = tf*idf
+
+def create_json_file():
+    with open("vsm_inverted_index.json", "w") as inverted_index_json:
+        json.dump(main_dict, inverted_index_json, indent=9)
 
 
 def calculate_query_tf_idf_grade(question, inverted_index):
@@ -85,7 +117,7 @@ def calculate_query_tf_idf_grade(question, inverted_index):
     grades = {}
     query_len = len(question)
     for word in query_set:
-        idf_score = math.log2(inverted_index["D"] / inverted_index[word]["df"]) # TODO use dict
+        idf_score = math.log2(inverted_index["D"] / inverted_index[word]["df"])
         grades[word] = (question.count(word) * idf_score) / query_len
 
     return grades
@@ -163,6 +195,7 @@ def make_txt_file_of_relevant_docs(relevant_docs):
     pass
 
 
+
 if __name__ == "__main__":
     if sys.argv[1] == "create_index":
         path = sys.argv[2]
@@ -170,6 +203,13 @@ if __name__ == "__main__":
             if filename.endswith("xml"):
                 f = os.path.join(path, filename)
                 extract_words_from_file(f)
+
+        update_docs_length_dict()
+        update_tfidf_score()
+        main_dict["inverted_index"] = inverted_index
+        main_dict["docs_length"] = docs_length
+        create_json_file()
+
 
     elif sys.argv[1] == "query":
         ranking_method = sys.argv[2]
