@@ -131,7 +131,7 @@ def apply_query_with_tfidf(question, inverted_index):
     question = filter_query(question)
     words_to_tfidf_grade_in_query = calculate_query_tf_idf_grade(question, inverted_index)
     query_denominator = get_tfidf_query_denominator(words_to_tfidf_grade_in_query)
-    docs_lengths = inverted_index["docs_lengths"]  # TODO show Tomer
+    docs_lengths = inverted_index["docs_lengths"] # TODO show Tomer
     for word in question:
         word_relevant_docs_to_grades: dict = inverted_index[word]["list"]
         for doc in word_relevant_docs_to_grades.keys():  # computing only the numerator
@@ -141,9 +141,8 @@ def apply_query_with_tfidf(question, inverted_index):
                 relevent_docs_to_grade[doc] += word_relevant_docs_to_grades[doc] * words_to_tfidf_grade_in_query[word]
 
     for doc in relevent_docs_to_grade.keys():
-        relevent_docs_to_grade[doc] = relevent_docs_to_grade[doc] / (
-                    docs_lengths[doc] * query_denominator)  # TODO show Tomer
-    return sorted(relevent_docs_to_grade.keys(), key=relevent_docs_to_grade.get, reverse=True)  # TODO test logic
+        relevent_docs_to_grade[doc] = relevent_docs_to_grade[doc] / (docs_lengths[doc] * query_denominator) # TODO show Tomer
+    return sorted(relevent_docs_to_grade.keys(), key=relevent_docs_to_grade.get, reverse=True) # TODO test logic
 
 
 def apply_query_with_bm(question, inverted_index):
