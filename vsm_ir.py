@@ -199,7 +199,7 @@ def apply_query(ranking_method, path_to_main_dict, question):
 
 
 def make_txt_file_of_relevant_docs(relevant_docs):
-    pass
+    pass # need to be done
 
 
 if __name__ == "__main__":
