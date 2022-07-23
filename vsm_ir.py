@@ -140,23 +140,22 @@ def get_tfidf_query_denominator(words_to_tfidf_grade_in_query: dict):
     return math.sqrt(sum_of_sqr)
 
 
-def apply_query_with_tfidf(question, inverted_index):
+def apply_query_with_tfidf(question, inverted_index: dict, docs: dict):
     relevant_docs_to_grade = {}
     question = filter_query(question)
-    words_to_tfidf_grade_in_query = calculate_query_tf_idf_grade(question, inverted_index) # הגעתי עד לכאן לילה טוב
+    words_to_tfidf_grade_in_query = calculate_query_tf_idf_grade(question, inverted_index)
     query_denominator = get_tfidf_query_denominator(words_to_tfidf_grade_in_query)
-    docs_denominator = inverted_index["docs_denominator"] # TODO fix
 
     for word in question:
-        word_relevant_docs_to_grades: dict = inverted_index[word]["list"]
-        for doc in word_relevant_docs_to_grades.keys(): # computing only the numerator
-            if doc not in relevant_docs_to_grade:
-                relevant_docs_to_grade[doc] = word_relevant_docs_to_grades[doc] * words_to_tfidf_grade_in_query[word]
+        relevant_docs_to_grades: dict = inverted_index[word]["list"]
+        for doc in relevant_docs_to_grades.keys():
+            if doc not in relevant_docs_to_grade.keys():
+                relevant_docs_to_grade[doc] = relevant_docs_to_grades[doc] * words_to_tfidf_grade_in_query[word]
             else:
-                relevant_docs_to_grade[doc] += word_relevant_docs_to_grades[doc] * words_to_tfidf_grade_in_query[word]
+                relevant_docs_to_grade[doc] += relevant_docs_to_grades[doc] * words_to_tfidf_grade_in_query[word]
 
     for doc in relevant_docs_to_grade.keys():
-        relevant_docs_to_grade[doc] = relevant_docs_to_grade[doc] / (docs_denominator[doc] * query_denominator)
+        relevant_docs_to_grade[doc] = relevant_docs_to_grade[doc] / (docs[doc]["doc_denominator"] * query_denominator) ## TODO SHOW TOMER
     return relevant_docs_to_grade
 
 
@@ -167,24 +166,27 @@ def get_bm25_grade(tf_in_doc, idf, doc_length, avg_size_of_doc):
     return tf * idf
 
 
-def apply_query_with_bm(question, inverted_index):
-    relevent_docs_to_grade = {}
-    avg_size_of_doc = inverted_index["docs"]["avg"]
+def apply_query_with_bm(question, inverted_index: dict, docs: dict):
+    relevant_docs_to_grade = {}
+    avg_size_of_doc = docs["average_number_of_docs"]
     question = filter_query(question)
 
     for word in question:
-        word_relevant_docs_to_grades: dict = inverted_index[word][
-            "list"]  # TODO check this is the right way to use the dict
-        for doc in word_relevant_docs_to_grades.keys():  # computing only the numerator
-            if doc not in relevent_docs_to_grade:
-                relevent_docs_to_grade[doc] = get_bm25_grade(inverted_index[word]["list"][doc],
-                                                             inverted_index[word]["list"]["idfbm25"],
-                                                             avg_size_of_doc)  # TODO לבדוק את המבנה של המילון כמו שצריך ואז להכניס ערכים נכונים
+        word_relevant_docs_to_grades: dict = inverted_index[word]["list"]
+        word_idf = inverted_index[word]["BM25_idf"]
+        for doc in word_relevant_docs_to_grades.keys():
+            if doc not in relevant_docs_to_grade:
+                relevant_docs_to_grade[doc] = get_bm25_grade(word_relevant_docs_to_grades[doc]["tf"],
+                                                             word_idf,
+                                                             docs[doc]["doc_length"], ### TODO SHOW TOMER
+                                                             avg_size_of_doc)
             else:
-                relevent_docs_to_grade[doc] += get_bm25_grade(inverted_index[word]["list"][doc],
-                                                              inverted_index[word]["list"]["idfbm25"], avg_size_of_doc)
+                relevant_docs_to_grade[doc] += get_bm25_grade(word_relevant_docs_to_grades[doc]["tf"],
+                                                             word_idf,
+                                                             docs[doc]["doc_length"], ### TODO SHOW TOMER
+                                                             avg_size_of_doc)
 
-    return relevent_docs_to_grade
+    return relevant_docs_to_grade
 
 
 def apply_query(ranking_method, path_to_main_dict, question):
@@ -194,9 +196,9 @@ def apply_query(ranking_method, path_to_main_dict, question):
     docs_length = main_dict["docs_length"]
 
     if ranking_method == "tfidf":
-        relevant_docs_to_grades = apply_query_with_tfidf(question, inverted_index)
+        relevant_docs_to_grades = apply_query_with_tfidf(question, inverted_index, docs_length)
     elif ranking_method == "bm25":
-        relevant_docs_to_grades = apply_query_with_bm(question, inverted_index)
+        relevant_docs_to_grades = apply_query_with_bm(question, inverted_index, docs_length)
     else:
         raise ("invalid ranking method argument")
 
@@ -204,7 +206,8 @@ def apply_query(ranking_method, path_to_main_dict, question):
 
 
 def make_txt_file_of_relevant_docs(relevant_docs):
-    pass # need to be done
+    with open("ranked_query_docs.txt", "w") as f:
+        f.writelines(relevant_docs)
 
 
 if __name__ == "__main__":
