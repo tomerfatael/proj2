@@ -159,21 +159,21 @@ def get_tfidf_query_denominator(words_to_tfidf_grade_in_query: dict):
     return math.sqrt(sum_of_sqr)
 
 
-def apply_query_with_tfidf(question, inverted_index: dict, docs: dict, docs_to_denominators: dict):
+def apply_query_with_tfidf(question, inverted_index: dict, docs_to_denominators: dict):
     relevant_docs_to_grade = {}
     question = filter_query(question)
     words_to_tfidf_grade_in_query = calculate_query_tf_idf_grade(question, inverted_index)
     query_denominator = get_tfidf_query_denominator(words_to_tfidf_grade_in_query)
 
     for word in question:
-        relevant_docs_to_grades: dict = inverted_index[word]["list"]
-        for doc in relevant_docs_to_grades.keys():
-            if doc not in relevant_docs_to_grade.keys():
-                relevant_docs_to_grade[doc] = relevant_docs_to_grades[doc] * words_to_tfidf_grade_in_query[word]
+        word_relevant_docs_to_grades: dict = inverted_index[word]["list"]
+        for doc in word_relevant_docs_to_grades:
+            if doc not in relevant_docs_to_grade:
+                relevant_docs_to_grade[doc] = word_relevant_docs_to_grades[doc]["tf-idf"] * words_to_tfidf_grade_in_query[word]
             else:
-                relevant_docs_to_grade[doc] += relevant_docs_to_grades[doc] * words_to_tfidf_grade_in_query[word]
+                relevant_docs_to_grade[doc] += word_relevant_docs_to_grades[doc]["tf-idf"] * words_to_tfidf_grade_in_query[word]
 
-    for doc in relevant_docs_to_grade.keys():
+    for doc in relevant_docs_to_grade:
         relevant_docs_to_grade[doc] = relevant_docs_to_grade[doc] / (docs_to_denominators[doc] * query_denominator) ## TODO SHOW TOMER
     return relevant_docs_to_grade
 
@@ -187,7 +187,7 @@ def get_bm25_grade(tf_in_doc, idf, doc_length, avg_size_of_doc):
 
 def apply_query_with_bm(question, inverted_index: dict, docs: dict):
     relevant_docs_to_grade = {}
-    avg_size_of_doc = docs["average_number_of_docs"]
+    avg_size_of_doc = docs["average_doc_length"]
     question = filter_query(question)
 
     for word in question:
@@ -216,18 +216,19 @@ def apply_query(ranking_method, path_to_main_dict, question):
     docs_to_denominators = main_dict["docs_denominators"]
 
     if ranking_method == "tfidf":
-        relevant_docs_to_grades = apply_query_with_tfidf(question, inverted_index, docs_length, docs_to_denominators)
+        relevant_docs_to_grades = apply_query_with_tfidf(question, inverted_index, docs_to_denominators)
     elif ranking_method == "bm25":
         relevant_docs_to_grades = apply_query_with_bm(question, inverted_index, docs_length)
     else:
         raise ("invalid ranking method argument")
 
-    return sorted(relevant_docs_to_grades.keys(), key=relevant_docs_to_grades.get, reverse=True)  # TODO test logic
+    return sorted(relevant_docs_to_grades.keys(), key=relevant_docs_to_grades.get, reverse=True)
 
 
 def make_txt_file_of_relevant_docs(relevant_docs):
     with open("ranked_query_docs.txt", "w") as f:
-        f.writelines(relevant_docs)
+        for doc in relevant_docs:
+            f.write(doc + "\n")
 
 
 if __name__ == "__main__":
