@@ -13,11 +13,13 @@ from nltk.stem import PorterStemmer
 main_dict = {}
 inverted_index = {}
 docs_length = {}
+docs_to_denominator = {}
 nltk.download('stopwords')
 nltk.download('punkt')
 tokenizer = RegexpTokenizer(r'\w+')
 stopwords = set(stopwords.words("english"))
 ps = PorterStemmer()
+
 
 
 def extract_words_from_file(file_name):
@@ -85,6 +87,18 @@ def update_docs_length_dict():
     docs_length["average_doc_length"] = number_of_words / number_of_docs
 
 
+def update_docs_denominator(doc_id, grade):
+    if doc_id not in docs_to_denominator:
+        docs_to_denominator[doc_id] = grade ** 2
+    else:
+        docs_to_denominator[doc_id] += grade ** 2
+
+
+def sqr_root_docs_to_denominator():
+    for doc in docs_to_denominator:
+        docs_to_denominator[doc] = math.sqrt(docs_to_denominator[doc])
+
+
 def update_tfidf_score():
     number_of_docs = docs_length["number_of_docs"]
     for word in inverted_index:
@@ -98,10 +112,15 @@ def update_tfidf_score():
         denominator = df + 0.5
         BM25_idf = math.log(numerator / denominator + 1)
         inverted_index[word]["BM25_idf"] = BM25_idf
+
         for doc_id in linked_list:
             # compute tf*idf score
             tf = linked_list[doc_id]["tf"]
-            linked_list[doc_id]["tf-idf"] = tf * idf
+            tfidf = tf * idf
+            linked_list[doc_id]["tf-idf"] = tfidf
+            update_docs_denominator(doc_id, tfidf)
+
+    sqr_root_docs_to_denominator()
 
 
 def create_json_file():
@@ -140,7 +159,7 @@ def get_tfidf_query_denominator(words_to_tfidf_grade_in_query: dict):
     return math.sqrt(sum_of_sqr)
 
 
-def apply_query_with_tfidf(question, inverted_index: dict, docs: dict):
+def apply_query_with_tfidf(question, inverted_index: dict, docs: dict, docs_to_denominators: dict):
     relevant_docs_to_grade = {}
     question = filter_query(question)
     words_to_tfidf_grade_in_query = calculate_query_tf_idf_grade(question, inverted_index)
@@ -155,7 +174,7 @@ def apply_query_with_tfidf(question, inverted_index: dict, docs: dict):
                 relevant_docs_to_grade[doc] += relevant_docs_to_grades[doc] * words_to_tfidf_grade_in_query[word]
 
     for doc in relevant_docs_to_grade.keys():
-        relevant_docs_to_grade[doc] = relevant_docs_to_grade[doc] / (docs[doc]["doc_denominator"] * query_denominator) ## TODO SHOW TOMER
+        relevant_docs_to_grade[doc] = relevant_docs_to_grade[doc] / (docs_to_denominators[doc] * query_denominator) ## TODO SHOW TOMER
     return relevant_docs_to_grade
 
 
@@ -178,12 +197,12 @@ def apply_query_with_bm(question, inverted_index: dict, docs: dict):
             if doc not in relevant_docs_to_grade:
                 relevant_docs_to_grade[doc] = get_bm25_grade(word_relevant_docs_to_grades[doc]["tf"],
                                                              word_idf,
-                                                             docs[doc]["doc_length"], ### TODO SHOW TOMER
+                                                             docs[doc],
                                                              avg_size_of_doc)
             else:
                 relevant_docs_to_grade[doc] += get_bm25_grade(word_relevant_docs_to_grades[doc]["tf"],
                                                              word_idf,
-                                                             docs[doc]["doc_length"], ### TODO SHOW TOMER
+                                                             docs[doc],
                                                              avg_size_of_doc)
 
     return relevant_docs_to_grade
@@ -194,9 +213,10 @@ def apply_query(ranking_method, path_to_main_dict, question):
     main_dict = json.load(main_dict_as_json) # inverted index should be the map as we built it, see if there are changes that needs to be done.
     inverted_index = main_dict["inverted_index"]
     docs_length = main_dict["docs_length"]
+    docs_to_denominators = main_dict["docs_denominators"]
 
     if ranking_method == "tfidf":
-        relevant_docs_to_grades = apply_query_with_tfidf(question, inverted_index, docs_length)
+        relevant_docs_to_grades = apply_query_with_tfidf(question, inverted_index, docs_length, docs_to_denominators)
     elif ranking_method == "bm25":
         relevant_docs_to_grades = apply_query_with_bm(question, inverted_index, docs_length)
     else:
@@ -222,6 +242,7 @@ if __name__ == "__main__":
         update_tfidf_score()
         main_dict["inverted_index"] = inverted_index
         main_dict["docs_length"] = docs_length
+        main_dict["docs_denominators"] = docs_to_denominator
         create_json_file()
 
     elif sys.argv[1] == "query":
