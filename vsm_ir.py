@@ -141,7 +141,8 @@ def calculate_query_tf_idf_grade(question, inverted_index):
     grades = {}
     max_frequency = get_max_occurrence(question)
     for word in query_set:
-        grades[word] = (question.count(word) * inverted_index[word]["idf"]) / max_frequency
+        idf_score = inverted_index[word]["idf"] if word in inverted_index else 0
+        grades[word] = (question.count(word) * idf_score) / max_frequency
 
     return grades
 
@@ -191,7 +192,9 @@ def apply_query_with_bm(question, inverted_index: dict, docs: dict):
     question = filter_query(question)
 
     for word in question:
-        word_relevant_docs_to_grades: dict = inverted_index[word]["list"]
+        if word not in inverted_index:
+            continue # TODO maybe check if we returns empty dict it effects other functions
+        word_relevant_docs_to_grades: dict = inverted_index[word]["list"] #TODO CHECK ABOUT THIS
         word_idf = inverted_index[word]["BM25_idf"]
         for doc in word_relevant_docs_to_grades.keys():
             if doc not in relevant_docs_to_grade:
