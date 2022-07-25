@@ -167,6 +167,8 @@ def apply_query_with_tfidf(question, inverted_index: dict, docs_to_denominators:
     query_denominator = get_tfidf_query_denominator(words_to_tfidf_grade_in_query)
 
     for word in question:
+        if word not in inverted_index:
+            continue
         word_relevant_docs_to_grades: dict = inverted_index[word]["list"]
         for doc in word_relevant_docs_to_grades:
             if doc not in relevant_docs_to_grade:
@@ -175,7 +177,7 @@ def apply_query_with_tfidf(question, inverted_index: dict, docs_to_denominators:
                 relevant_docs_to_grade[doc] += word_relevant_docs_to_grades[doc]["tf-idf"] * words_to_tfidf_grade_in_query[word]
 
     for doc in relevant_docs_to_grade:
-        relevant_docs_to_grade[doc] = relevant_docs_to_grade[doc] / (docs_to_denominators[doc] * query_denominator) ## TODO SHOW TOMER
+        relevant_docs_to_grade[doc] = relevant_docs_to_grade[doc] / (docs_to_denominators[doc] * query_denominator)
     return relevant_docs_to_grade
 
 
@@ -193,17 +195,18 @@ def apply_query_with_bm(question, inverted_index: dict, docs: dict):
 
     for word in question:
         if word not in inverted_index:
-            continue # TODO maybe check if we returns empty dict it effects other functions
-        word_relevant_docs_to_grades: dict = inverted_index[word]["list"] #TODO CHECK ABOUT THIS
+            continue
+        word_relevant_docs_to_grades: dict = inverted_index[word]["list"]
         word_idf = inverted_index[word]["BM25_idf"]
-        for doc in word_relevant_docs_to_grades.keys():
+
+        for doc in word_relevant_docs_to_grades:
             if doc not in relevant_docs_to_grade:
-                relevant_docs_to_grade[doc] = get_bm25_grade(word_relevant_docs_to_grades[doc]["tf"],
+                relevant_docs_to_grade[doc] = get_bm25_grade(word_relevant_docs_to_grades[doc]["f"], ## TODO ask Tomer about tf and f
                                                              word_idf,
                                                              docs[doc],
                                                              avg_size_of_doc)
             else:
-                relevant_docs_to_grade[doc] += get_bm25_grade(word_relevant_docs_to_grades[doc]["tf"],
+                relevant_docs_to_grade[doc] += get_bm25_grade(word_relevant_docs_to_grades[doc]["f"],
                                                              word_idf,
                                                              docs[doc],
                                                              avg_size_of_doc)
