@@ -225,18 +225,30 @@ def apply_query(ranking_method, path_to_main_dict, question):
 
     if ranking_method == "tfidf":
         relevant_docs_to_grades = apply_query_with_tfidf(question, inverted_index, docs_to_denominators)
+        relevant_docs_to_grades1 = filter_docs_with_threshold(relevant_docs_to_grades, 0.11)
     elif ranking_method == "bm25":
         relevant_docs_to_grades = apply_query_with_bm(question, inverted_index, docs_length)
+        relevant_docs_to_grades1 = filter_docs_with_threshold(relevant_docs_to_grades, 6)
     else:
         raise ("invalid ranking method argument")
 
-    return sorted(relevant_docs_to_grades.keys(), key=relevant_docs_to_grades.get, reverse=True)
+    return relevant_docs_to_grades1
+    #return sorted(relevant_docs_to_grades, key=relevant_docs_to_grades.get, reverse=True)
 
 
 def make_txt_file_of_relevant_docs(relevant_docs):
     with open("ranked_query_docs.txt", "w") as f:
         for doc in relevant_docs:
             f.write(doc + "\n")
+
+
+def filter_docs_with_threshold(relevant_docs, threshold: float):
+    filtered_relevant_docs = {}
+    for doc in relevant_docs:
+        if relevant_docs[doc] > threshold:
+            filtered_relevant_docs[doc] = relevant_docs[doc]
+
+    return filtered_relevant_docs
 
 
 if __name__ == "__main__":
@@ -259,8 +271,9 @@ if __name__ == "__main__":
         path_to_main_dict = sys.argv[3]
         question = sys.argv[4]
         relevant_docs = apply_query(ranking_method, path_to_main_dict, question)
-        relevant_docs = relevant_docs[: int(len(relevant_docs) / 6)]
-        make_txt_file_of_relevant_docs(relevant_docs)
+        relevant_docs_list = sorted(relevant_docs, key=relevant_docs.get, reverse=True)
+        #relevant_docs = relevant_docs[: int(len(relevant_docs) / 2)]
+        make_txt_file_of_relevant_docs(relevant_docs_list)
 
     else:
         print("invalid arguments")
