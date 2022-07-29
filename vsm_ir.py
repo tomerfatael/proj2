@@ -39,9 +39,9 @@ def extract_words_from_doc(doc):
             doc_text += text + " "
 
     text_tokens = tokenizer.tokenize(doc_text)
-    docs_length[doc_id] = len(text_tokens)  # saving documents length TODO check the right place
     filtered_text = filter_stop_words(text_tokens)  # filter stop words
     stemmed_text = words_stemming(filtered_text)  # stem text
+    docs_length[doc_id] = len(stemmed_text)  # saving documents length
     doc_dict = create_doc_dict(stemmed_text)  # word to number of appearances in doc
     update_inverted_index(doc_id, doc_dict)
 
@@ -51,7 +51,7 @@ def filter_stop_words(text_tokens):
 
 
 def words_stemming(filtered_text):
-    return [ps.stem(w) for w in filtered_text]  # TODO check about duplications
+    return [ps.stem(w) for w in filtered_text]
 
 
 def create_doc_dict(stemmed_text):
