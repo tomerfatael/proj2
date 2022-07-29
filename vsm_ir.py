@@ -166,7 +166,7 @@ def apply_query_with_tfidf(question, inverted_index: dict, docs_to_denominators:
     words_to_tfidf_grade_in_query = calculate_query_tf_idf_grade(question, inverted_index)
     query_denominator = get_tfidf_query_denominator(words_to_tfidf_grade_in_query)
 
-    for word in question:
+    for word in set(question):
         if word not in inverted_index:
             continue
         word_relevant_docs_to_grades: dict = inverted_index[word]["list"]
@@ -184,7 +184,9 @@ def apply_query_with_tfidf(question, inverted_index: dict, docs_to_denominators:
 def get_bm25_grade(tf_in_doc, idf, doc_length, avg_size_of_doc):
     k1 = 1.2
     b = 0.75
-    tf = (tf_in_doc * (k1 + 1)) / (tf_in_doc + (k1 * (1 - b + b * (doc_length / avg_size_of_doc))))
+    tf_numerator = tf_in_doc * (k1 + 1)
+    tf_denominator = tf_in_doc + k1 * (1 - b + b*(doc_length / avg_size_of_doc))
+    tf = tf_numerator / tf_denominator
     return tf * idf
 
 
@@ -201,7 +203,7 @@ def apply_query_with_bm(question, inverted_index: dict, docs: dict):
 
         for doc in word_relevant_docs_to_grades:
             if doc not in relevant_docs_to_grade:
-                relevant_docs_to_grade[doc] = get_bm25_grade(word_relevant_docs_to_grades[doc]["f"], ## TODO ask Tomer about tf and f
+                relevant_docs_to_grade[doc] = get_bm25_grade(word_relevant_docs_to_grades[doc]["f"],
                                                              word_idf,
                                                              docs[doc],
                                                              avg_size_of_doc)
@@ -257,6 +259,7 @@ if __name__ == "__main__":
         path_to_main_dict = sys.argv[3]
         question = sys.argv[4]
         relevant_docs = apply_query(ranking_method, path_to_main_dict, question)
+        relevant_docs = relevant_docs[: int(len(relevant_docs) / 6)]
         make_txt_file_of_relevant_docs(relevant_docs)
 
     else:
