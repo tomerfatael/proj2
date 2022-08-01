@@ -151,8 +151,6 @@ def filter_query(question):
     question = tokenizer.tokenize(question)
     question = filter_stop_words(question)
     return words_stemming(question)
-    # return words_stemming(filter_stop_words(tokenizer.tokenize(question)))  TODO- single row, replace after debug.
-
 
 def get_tfidf_query_denominator(words_to_tfidf_grade_in_query: dict):
     grades = list(words_to_tfidf_grade_in_query.values())
@@ -182,7 +180,7 @@ def apply_query_with_tfidf(question, inverted_index: dict, docs_to_denominators:
 
 
 def get_bm25_grade(tf_in_doc, idf, doc_length, avg_size_of_doc):
-    k1 = 1.2
+    k1 = 2.45
     b = 0.75
     tf_numerator = tf_in_doc * (k1 + 1)
     tf_denominator = tf_in_doc + k1 * (1 - b + b*(doc_length / avg_size_of_doc))
@@ -218,7 +216,7 @@ def apply_query_with_bm(question, inverted_index: dict, docs: dict):
 
 def apply_query(ranking_method, path_to_main_dict, question):
     main_dict_as_json = open(path_to_main_dict, "r")
-    main_dict = json.load(main_dict_as_json) # inverted index should be the map as we built it, see if there are changes that needs to be done.
+    main_dict = json.load(main_dict_as_json)
     inverted_index = main_dict["inverted_index"]
     docs_length = main_dict["docs_length"]
     docs_to_denominators = main_dict["docs_denominators"]
